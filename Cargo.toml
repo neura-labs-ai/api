@@ -1,0 +1,13 @@
+[package]
+name = "neura-labs-api"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+neura-labs-engine = { path = "../engine" }
+actix-web = "4.3.1"
+serde = "1.0.160"
+serde_json = "1.0.96"
+anyhow = "1"
