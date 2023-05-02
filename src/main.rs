@@ -6,16 +6,29 @@ use neura_labs_engine::{
     Language,
 };
 
-// let gen_strings =
-//     generate_translation(Language::English, Language::Spanish, vec!["How are you?"]).unwrap();
-
-// let t = convert_strings_to_strs(&gen_strings);
-
-// println!("{}", concatenate_strings(&t));
+// This struct represents state
+struct AppState {
+    app_name: String,
+}
 
 #[get("/")]
-async fn hello() -> impl Responder {
+async fn index(data: web::Data<AppState>) -> impl Responder {
+    let app_name = &data.app_name; // <- get app_name
+    format!("Hello {app_name}!"); // <- response with app_name
     HttpResponse::Ok().body("Hello world!")
+}
+
+#[get("/t")]
+async fn translate() -> impl Responder {
+    let gen_strings = actix_web::web::block(move || {
+        generate_translation(Language::English, Language::Spanish, vec!["How are you?"])
+    })
+    .await
+    .unwrap().unwrap();
+
+    let t = concatenate_strings(&convert_strings_to_strs(&gen_strings));
+
+    HttpResponse::Ok().body(t)
 }
 
 #[post("/echo")]
@@ -25,8 +38,16 @@ async fn echo(req_body: String) -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(hello).service(echo))
-        .bind(("127.0.0.1", 8080))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .app_data(web::Data::new(AppState {
+                app_name: String::from("Neura Labs API"),
+            }))
+            .service(index)
+            .service(echo)
+            .service(translate)
+    })
+    .bind(("127.0.0.1", 8080))?
+    .run()
+    .await
 }
