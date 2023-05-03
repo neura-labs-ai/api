@@ -12,7 +12,7 @@ serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.96"
 anyhow = "1"
 futures = "0.3.28"
-chrono = "0.4.24"
+chrono = { version = "0.4.24", features = ["serde"] }
 
 [dependencies.mongodb]
 version = "2.5.0"
