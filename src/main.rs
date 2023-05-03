@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 mod methods;
 use methods::{
-    get::{health_check, index, translate},
+    get::{health_check, index}, post::translate,
 };
 
 // This struct represents state
