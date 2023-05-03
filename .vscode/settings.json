@@ -1,7 +1,12 @@
 {
     "cSpell.words": [
         "actix",
+        "bson",
+        "chrono",
+        "datetime",
         "neura",
-        "strs"
+        "neuralabsai",
+        "strs",
+        "tomestoned"
     ]
 }

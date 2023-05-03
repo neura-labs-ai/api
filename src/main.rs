@@ -1,26 +1,36 @@
 extern crate anyhow;
-use actix_web::{web, App, HttpServer};
-use serde::{Deserialize, Serialize};
 
+use actix_web::{web, App, HttpServer};
+
+mod db;
 mod methods;
+mod models;
 use methods::{
-    get::{health_check, index}, post::translate,
+    get::{health_check, index},
+    post::translate,
 };
 
-// This struct represents state
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct AppState {
     app_name: String,
+    pub db: db::MongoDB,
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+    let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
+    let db = db::MongoDB::new(uri)
+        .await
+        .expect("Failed to initialize MongoDB");
+
+    HttpServer::new(move || {
+        let app_state = AppState {
+            app_name: String::from("Neura Labs API"),
+            db: db.clone(),
+        };
+
         App::new()
-            .app_data(web::Data::new(AppState {
-                app_name: String::from("Neura Labs API"),
-            }))
+            .app_data(web::Data::new(app_state))
             .service(index)
             .service(health_check)
             .service(translate)
