@@ -19,7 +19,7 @@ pub struct RequestBody<T> {
 
 #[derive(Deserialize)]
 pub struct GetUserBody {
-    id: String,
+    pub id: String,
 }
 
 #[derive(Deserialize)]
@@ -106,7 +106,7 @@ pub async fn get_user(
 
     let filter = doc! {"_id": id};
 
-    match collection.find_one(filter, None).await {
+    match collection.find_one(filter, None) {
         Ok(result) => match result {
             Some(user) => HttpResponse::Ok().json(user),
             None => HttpResponse::NotFound().body("User not found"),
@@ -136,7 +136,7 @@ pub async fn get_user_stats(
 
     let filter = doc! {"_id": id};
 
-    match collection.find_one(filter, None).await {
+    match collection.find_one(filter, None) {
         Ok(result) => match result {
             Some(data) => HttpResponse::Ok().json(data),
             None => HttpResponse::NotFound().body(format!("No stats found for id: {}.", body.data)),

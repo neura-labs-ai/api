@@ -2,7 +2,7 @@ extern crate anyhow;
 
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
-    Client, Database,
+    sync::{Client, Collection}, sync::Database,
 };
 
 use crate::models::{ReportStatus, SystemReport, Tokens, UserReport};
@@ -29,8 +29,8 @@ pub enum CollectionNames {
 
 impl MongoDB {
     /// Initializes a new MongoDB instance
-    pub async fn new(auth_url: &String) -> anyhow::Result<Self> {
-        let client = match Client::with_uri_str(auth_url).await {
+    pub fn new(auth_url: &String) -> anyhow::Result<Self> {
+        let client = match Client::with_uri_str(auth_url) {
             Ok(client) => client,
             Err(e) => return Err(anyhow::Error::new(e)),
         };
@@ -49,8 +49,8 @@ impl MongoDB {
     /// Checks if the MongoDB instance is alive
     ///
     /// Returns 1 if the instance is alive and 0 if it is not
-    pub async fn ping(&self) -> anyhow::Result<Document> {
-        match self.db.run_command(doc! {"ping": 1}, None).await {
+    pub fn ping(&self) -> anyhow::Result<Document> {
+        match self.db.run_command(doc! {"ping": 1}, None) {
             Ok(result) => Ok(result),
             Err(e) => Err(anyhow::Error::new(e)),
         }
@@ -59,7 +59,7 @@ impl MongoDB {
     /// Returns a MongoDB collection
     ///
     /// This is a helper function that also is typed
-    pub fn get_collection<T>(&self, collection_name: CollectionNames) -> mongodb::Collection<T> {
+    pub fn get_collection<T>(&self, collection_name: CollectionNames) -> Collection<T> {
         match collection_name {
             CollectionNames::User => self.db.collection("users"),
             CollectionNames::Account => self.db.collection("accounts"),
@@ -72,7 +72,7 @@ impl MongoDB {
         }
     }
 
-    pub async fn create_system_report(
+    pub fn create_system_report(
         &self,
         title: String,
         description: String,
@@ -87,13 +87,13 @@ impl MongoDB {
             created_at: chrono::Utc::now(),
         };
 
-        match collection.insert_one(report, None).await {
+        match collection.insert_one(report, None) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::new(e)),
         }
     }
 
-    pub async fn create_user_report(
+    pub fn create_user_report(
         &self,
         title: String,
         description: String,
@@ -110,7 +110,7 @@ impl MongoDB {
             assigned_to_id,
         };
 
-        match collection.insert_one(report, None).await {
+        match collection.insert_one(report, None) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::new(e)),
         }
@@ -121,12 +121,12 @@ impl MongoDB {
     /// Checks if a api token exists in the database
     ///
     /// This is used to check if a token is valid. If it is, then the user is authenticated on the API.
-    pub async fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
+    pub fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
         let collection = self.get_collection::<Tokens>(CollectionNames::Tokens);
 
         let filter = doc! {"token": token};
 
-        match collection.find_one(filter, None).await {
+        match collection.find_one(filter, None) {
             Ok(result) => match result {
                 Some(_) => Ok(true),
                 None => Ok(false),
@@ -136,15 +136,15 @@ impl MongoDB {
     }
 
     /// Returns the API key for a given token
-    pub async fn get_api_key(&self, token: String) -> anyhow::Result<String> {
+    pub fn get_api_key(&self, token: &str) -> anyhow::Result<Option<String>> {
         let collection = self.get_collection::<Tokens>(CollectionNames::Tokens);
 
         let filter = doc! {"token": token};
 
-        match collection.find_one(filter, None).await {
+        match collection.find_one(filter, None) {
             Ok(result) => match result {
-                Some(data) => Ok(data.token),
-                None => Err(anyhow::Error::msg("Token not found")),
+                Some(data) => Ok(Some(data.token)),
+                None => Ok(None),
             },
             Err(e) => Err(anyhow::Error::new(e)),
         }

@@ -5,12 +5,13 @@ mod models;
 
 extern crate anyhow;
 
-use actix_web::{web, App, HttpServer};
+use actix_web::{middleware::Logger, web, App, HttpServer};
 use env_file_reader::read_file;
+use env_logger::Env;
 
 use methods::{
     get::{health_check, index},
-    post::{translate, get_user, get_user_stats},
+    post::{get_user, get_user_stats, translate},
 };
 
 #[derive(Clone, Debug)]
@@ -27,9 +28,9 @@ async fn main() -> std::io::Result<()> {
 
     println!("Connecting to MongoDB at {}", mongo_uri);
 
-    let db = db::MongoDB::new(mongo_uri)
-        .await
-        .expect("Failed to initialize MongoDB");
+    let db = db::MongoDB::new(mongo_uri).expect("Failed to initialize MongoDB");
+
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
 
     HttpServer::new(move || {
         let app_state = AppState {
@@ -39,8 +40,12 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(web::Data::new(app_state))
+            .wrap(Logger::default())
+            .wrap(Logger::new("%a %{User-Agent}i"))
+            // get
             .service(index)
             .service(health_check)
+            // post
             .service(translate)
             .service(get_user)
             .service(get_user_stats)

@@ -17,7 +17,7 @@ struct HealthReport {
 
 #[get("/health")]
 pub async fn health_check(data: web::Data<AppState>) -> impl Responder {
-    let ping_result = data.db.ping().await.unwrap();
+    let ping_result = data.db.ping().unwrap();
 
     let health_report = HealthReport {
         server: "OK".to_string(),
