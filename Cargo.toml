@@ -16,8 +16,6 @@ chrono = { version = "0.4.24", features = ["serde"] }
 env-file-reader = "0.3.0"
 derive_more = "0.99.17"
 env_logger = "0.10.0"
-futures-util = "0.3.28"
-actix-http = "3.3.1"
 
 [dependencies.mongodb]
 version = "2.5.0"
