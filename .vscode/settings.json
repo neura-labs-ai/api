@@ -5,8 +5,10 @@
         "chrono",
         "datetime",
         "neura",
+        "NEURALABS",
         "neuralabsai",
         "strs",
         "tomestoned"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

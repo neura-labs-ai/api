@@ -1,10 +1,11 @@
 use crate::{
     db::CollectionNames,
-    models::{Statistics, User},
+    methods::generate_api_key,
+    models::{Statistics, Tokens, User},
     AppState,
 };
 use actix_web::{post, web, HttpResponse, Responder};
-use mongodb::bson::doc;
+use mongodb::bson::{doc, oid::ObjectId};
 use neura_labs_engine::{
     pipelines::translation::generate_translation,
     utils::{concatenate_strings, convert_strings_to_strs},
@@ -39,7 +40,7 @@ struct TranslateResponse {
 }
 
 /// Translates a given input from a source language to a target language
-/// 
+///
 /// If the `concat` field is set to true, the output will be concatenated into a single string.
 /// The result will simply be the first element of the output array.
 ///
@@ -106,7 +107,7 @@ pub async fn get_user(
 
     let filter = doc! {"_id": id};
 
-    match collection.find_one(filter, None) {
+    match collection.find_one(filter, None).await {
         Ok(result) => match result {
             Some(user) => HttpResponse::Ok().json(user),
             None => HttpResponse::NotFound().body("User not found"),
@@ -136,11 +137,33 @@ pub async fn get_user_stats(
 
     let filter = doc! {"_id": id};
 
-    match collection.find_one(filter, None) {
+    match collection.find_one(filter, None).await {
         Ok(result) => match result {
             Some(data) => HttpResponse::Ok().json(data),
             None => HttpResponse::NotFound().body(format!("No stats found for id: {}.", body.data)),
         },
+        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
+    }
+}
+
+#[post("/api/v1/token")]
+pub async fn create_api_token(
+    data: web::Data<AppState>,
+    body: web::Json<RequestBody<String>>,
+) -> impl Responder {
+    let collection = data.db.get_collection::<Tokens>(CollectionNames::Tokens);
+
+    let token = Tokens {
+        _id: ObjectId::new(),
+        token: generate_api_key(),
+        created_at: chrono::Utc::now(),
+        updated_at: None,
+        tomestoned: false,
+        author_id: data.db.convert_to_object_id(body.data.clone()).unwrap(),
+    };
+
+    match collection.insert_one(token, None).await {
+        Ok(_) => HttpResponse::Ok().body("ok"),
         Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
     }
 }

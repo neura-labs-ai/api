@@ -2,7 +2,7 @@ extern crate anyhow;
 
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
-    sync::{Client, Collection}, sync::Database,
+    Database, {Client, Collection},
 };
 
 use crate::models::{ReportStatus, SystemReport, Tokens, UserReport};
@@ -29,8 +29,8 @@ pub enum CollectionNames {
 
 impl MongoDB {
     /// Initializes a new MongoDB instance
-    pub fn new(auth_url: &String) -> anyhow::Result<Self> {
-        let client = match Client::with_uri_str(auth_url) {
+    pub async fn new(auth_url: &String) -> anyhow::Result<Self> {
+        let client = match Client::with_uri_str(auth_url).await {
             Ok(client) => client,
             Err(e) => return Err(anyhow::Error::new(e)),
         };
@@ -49,8 +49,8 @@ impl MongoDB {
     /// Checks if the MongoDB instance is alive
     ///
     /// Returns 1 if the instance is alive and 0 if it is not
-    pub fn ping(&self) -> anyhow::Result<Document> {
-        match self.db.run_command(doc! {"ping": 1}, None) {
+    pub async fn ping(&self) -> anyhow::Result<Document> {
+        match self.db.run_command(doc! {"ping": 1}, None).await {
             Ok(result) => Ok(result),
             Err(e) => Err(anyhow::Error::new(e)),
         }
@@ -72,11 +72,7 @@ impl MongoDB {
         }
     }
 
-    pub fn create_system_report(
-        &self,
-        title: String,
-        description: String,
-    ) -> anyhow::Result<()> {
+    pub async fn create_system_report(&self, title: String, description: String) -> anyhow::Result<()> {
         let collection = self.get_collection::<SystemReport>(CollectionNames::SystemReport);
 
         let report = SystemReport {
@@ -87,13 +83,13 @@ impl MongoDB {
             created_at: chrono::Utc::now(),
         };
 
-        match collection.insert_one(report, None) {
+        match collection.insert_one(report, None).await {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::new(e)),
         }
     }
 
-    pub fn create_user_report(
+    pub async fn create_user_report(
         &self,
         title: String,
         description: String,
@@ -110,7 +106,7 @@ impl MongoDB {
             assigned_to_id,
         };
 
-        match collection.insert_one(report, None) {
+        match collection.insert_one(report, None).await {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::Error::new(e)),
         }
@@ -121,12 +117,12 @@ impl MongoDB {
     /// Checks if a api token exists in the database
     ///
     /// This is used to check if a token is valid. If it is, then the user is authenticated on the API.
-    pub fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
+    pub  async fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
         let collection = self.get_collection::<Tokens>(CollectionNames::Tokens);
 
         let filter = doc! {"token": token};
 
-        match collection.find_one(filter, None) {
+        match collection.find_one(filter, None).await {
             Ok(result) => match result {
                 Some(_) => Ok(true),
                 None => Ok(false),
@@ -136,12 +132,12 @@ impl MongoDB {
     }
 
     /// Returns the API key for a given token
-    pub fn get_api_key(&self, token: &str) -> anyhow::Result<Option<String>> {
+    pub async fn get_api_key(&self, token: &str) -> anyhow::Result<Option<String>> {
         let collection = self.get_collection::<Tokens>(CollectionNames::Tokens);
 
         let filter = doc! {"token": token};
 
-        match collection.find_one(filter, None) {
+        match collection.find_one(filter, None).await {
             Ok(result) => match result {
                 Some(data) => Ok(Some(data.token)),
                 None => Ok(None),
