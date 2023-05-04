@@ -60,6 +60,18 @@ struct TranslateResponse {
 #[post("/api/v1/translate")]
 pub async fn translate(body: web::Json<RequestBody<TranslateBody>>) -> impl Responder {
     let result = actix_web::web::block(move || {
+
+        // todo - make sure this works
+        let v_langs = vec![body.data.source_language, body.data.target_language];
+        for lang in v_langs {
+            let validate = validate_language_input(lang);
+            if !validate {
+                return Err::<TranslateResponse, anyhow::Error>(anyhow::Error::msg(
+                    "Invalid language input",
+                ));
+            }
+        }
+
         let mut res = Vec::new();
 
         let data = generate_translation(
@@ -83,6 +95,15 @@ pub async fn translate(body: web::Json<RequestBody<TranslateBody>>) -> impl Resp
     .unwrap();
 
     HttpResponse::Ok().json(result)
+}
+
+fn validate_language_input(lang: Language) -> bool {
+    match lang {
+        Language::English => true,
+        Language::Spanish => true,
+        Language::French => true,
+        _ => false,
+    }
 }
 
 /// Returns data for a given user
