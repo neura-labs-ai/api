@@ -1,11 +1,14 @@
 extern crate anyhow;
 
+use chrono::{DateTime, Utc};
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
+    options::{FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument},
     Database, {Client, Collection},
 };
+use serde::{Deserialize, Serialize};
 
-use crate::models::{ReportStatus, SystemReport, Tokens, UserReport};
+use crate::models::{Payment, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport};
 
 pub const DB_NAME: &str = "neuralabsai-dev";
 
@@ -72,7 +75,11 @@ impl MongoDB {
         }
     }
 
-    pub async fn create_system_report(&self, title: String, description: String) -> anyhow::Result<()> {
+    pub async fn create_system_report(
+        &self,
+        title: String,
+        description: String,
+    ) -> anyhow::Result<()> {
         let collection = self.get_collection::<SystemReport>(CollectionNames::SystemReport);
 
         let report = SystemReport {
@@ -112,12 +119,76 @@ impl MongoDB {
         }
     }
 
+    // Creates a new stats report for the api.
+    // todo - test
+    pub async fn create_statistics_report(
+        &self,
+        user_id: ObjectId,
+        options: StatisticsReportOptions,
+    ) -> anyhow::Result<()> {
+        let collection = self.get_collection::<Statistics>(CollectionNames::Statistics);
+
+        // Get the current date and time.
+        let now = Utc::now();
+
+        // Find an existing statistics report for the user.
+        let filter = doc! {"author_id": user_id};
+        let existing_report = collection.find_one(filter.clone(), None).await?;
+
+        // Create a new statistics report or update the existing one.
+        let report = match existing_report {
+            Some(mut report) => {
+                // Update the usage and payments data if provided.
+                if let Some(usage) = options.usage {
+                    report.usage = Some(usage);
+                }
+                if let Some(payments) = options.payments {
+                    report.payments = Some(payments);
+                }
+
+                // Update the updated_at field.
+                report.updated_at = Some(now);
+
+                report
+            }
+            None => {
+                // Create a new statistics report.
+                Statistics {
+                    _id: ObjectId::new(),
+                    created_at: now,
+                    updated_at: None,
+                    usage: options.usage,
+                    payments: options.payments,
+                    author_id: user_id,
+                }
+            }
+        };
+
+        // Save the statistics report to the database.
+        let result = collection
+            .replace_one(
+                filter,
+                report.clone(),
+                ReplaceOptions::builder().upsert(true).build(),
+            )
+            .await?;
+
+        // Check if the statistics report was inserted or updated.
+        if result.matched_count > 0 {
+            println!("Statistics report updated: {:?}", report);
+        } else {
+            println!("Statistics report created: {:?}", report);
+        }
+
+        Ok(())
+    }
+
     // todo - on api startup, cache all current tokens in memory for faster access
     // todo - any new tokens will be added to the cache. This is to avoid querying the database for every request
     /// Checks if a api token exists in the database
     ///
     /// This is used to check if a token is valid. If it is, then the user is authenticated on the API.
-    pub  async fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
+    pub async fn has_api_key(&self, token: String) -> anyhow::Result<bool> {
         let collection = self.get_collection::<Tokens>(CollectionNames::Tokens);
 
         let filter = doc! {"token": token};
@@ -153,4 +224,10 @@ impl MongoDB {
             Err(e) => Err(anyhow::Error::new(e)),
         }
     }
+}
+
+pub struct StatisticsReportOptions {
+    pub author_id: ObjectId,
+    pub usage: Option<Usage>,
+    pub payments: Option<Vec<Payment>>,
 }
