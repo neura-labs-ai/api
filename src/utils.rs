@@ -5,6 +5,8 @@ pub struct Environment {
     pub mongodb_uri: String,
     // The super-key is the direct bypass key for the API. Used for internal API's
     pub super_key: String,
+    pub port: u16,
+    pub address: String,
 }
 
 fn load_env_data() -> anyhow::Result<HashMap<String, String>> {
@@ -32,8 +34,20 @@ pub fn env() -> anyhow::Result<Environment> {
         None => return Err(anyhow::anyhow!("SUPER_KEY not found in .env")),
     };
 
+    let port = match env_data.get("PORT") {
+        Some(port) => port.parse::<u16>().unwrap(),
+        None => 8080,
+    };
+
+    let address = match env_data.get("ADDRESS") {
+        Some(address) => address.to_string(),
+        None => "127.0.0.1".to_string(),
+    };
+
     Ok(Environment {
         mongodb_uri: mongodb_uri.to_string(),
         super_key: super_key.to_string(),
+        port: port,
+        address: address,
     })
 }

@@ -51,7 +51,7 @@ async fn main() -> std::io::Result<()> {
             .service(translate)
             .service(create_api_token)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((utils::env().unwrap().address, utils::env().unwrap().port))?
     .run()
     .await
 }
