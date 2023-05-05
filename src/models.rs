@@ -17,6 +17,7 @@ pub struct User {
     pub roles: Vec<UserRole>,
     pub telemetry: bool,
     pub tomestoned: bool,
+    pub credits: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -83,6 +84,14 @@ pub struct Usage {
 
     api_calls_success: Option<i32>,
     api_calls_fail: Option<i32>,
+
+    credits: Option<Credits>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Credits {
+    total: Option<i32>,
+    used: Option<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

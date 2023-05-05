@@ -1,9 +1,4 @@
-use crate::{
-    db::CollectionNames,
-    methods::generate_api_key,
-    models::{Statistics, Tokens, User},
-    AppState,
-};
+use crate::{db::CollectionNames, methods::{generate_api_key, RequestBody}, models::Tokens, AppState};
 use actix_web::{post, web, HttpResponse, Responder};
 use mongodb::bson::{doc, oid::ObjectId};
 use neura_labs_engine::{
@@ -12,11 +7,6 @@ use neura_labs_engine::{
     Language,
 };
 use serde::{Deserialize, Serialize};
-
-#[derive(Deserialize)]
-pub struct RequestBody<T> {
-    data: T,
-}
 
 #[derive(Deserialize)]
 pub struct GetUserBody {
@@ -60,7 +50,6 @@ struct TranslateResponse {
 #[post("/api/v1/translate")]
 pub async fn translate(body: web::Json<RequestBody<TranslateBody>>) -> impl Responder {
     let result = actix_web::web::block(move || {
-
         // todo - make sure this works
         let v_langs = vec![body.data.source_language, body.data.target_language];
         for lang in v_langs {
@@ -103,67 +92,6 @@ fn validate_language_input(lang: Language) -> bool {
         Language::Spanish => true,
         Language::French => true,
         _ => false,
-    }
-}
-
-/// Returns data for a given user
-///
-/// # Example Request Body
-/// ```json
-/// {
-///   "data": "user-id"
-/// }
-/// ```
-#[post("/api/v1/user")]
-pub async fn get_user(
-    data: web::Data<AppState>,
-    body: web::Json<RequestBody<String>>,
-) -> impl Responder {
-    let collection = data.db.get_collection::<User>(CollectionNames::User);
-
-    let id = match data.db.convert_to_object_id(body.data.clone()) {
-        Ok(id) => id,
-        Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
-    };
-
-    let filter = doc! {"_id": id};
-
-    match collection.find_one(filter, None).await {
-        Ok(result) => match result {
-            Some(user) => HttpResponse::Ok().json(user),
-            None => HttpResponse::NotFound().body("User not found"),
-        },
-        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
-    }
-}
-
-/// Returns the statistics for a given user
-///
-/// # Example Request Body
-/// ```json
-/// {
-///   "data": "user-id"
-/// }
-/// ```
-#[post("/api/v1/user/stats")]
-pub async fn get_user_stats(
-    data: web::Data<AppState>,
-    body: web::Json<RequestBody<String>>,
-) -> impl Responder {
-    let collection = data
-        .db
-        .get_collection::<Statistics>(CollectionNames::Statistics);
-
-    let id = data.db.convert_to_object_id(body.data.clone()).unwrap();
-
-    let filter = doc! {"_id": id};
-
-    match collection.find_one(filter, None).await {
-        Ok(result) => match result {
-            Some(data) => HttpResponse::Ok().json(data),
-            None => HttpResponse::NotFound().body(format!("No stats found for id: {}.", body.data)),
-        },
-        Err(e) => HttpResponse::InternalServerError().body(format!("{}", e)),
     }
 }
 

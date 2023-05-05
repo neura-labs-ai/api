@@ -11,8 +11,7 @@ use actix_web::{middleware::Logger, web, App, HttpServer};
 use env_logger::Env;
 
 use methods::{
-    get::{health_check, index},
-    post::{get_user, get_user_stats, translate},
+    get::{health_check, index, get_user, get_user_stats, get_global_statistics}, post::translate,
 };
 
 use crate::methods::post::create_api_token;
@@ -45,10 +44,11 @@ async fn main() -> std::io::Result<()> {
             // get
             .service(index)
             .service(health_check)
-            // post
-            .service(translate)
             .service(get_user)
             .service(get_user_stats)
+            .service(get_global_statistics)
+            // post
+            .service(translate)
             .service(create_api_token)
     })
     .bind(("127.0.0.1", 8080))?
