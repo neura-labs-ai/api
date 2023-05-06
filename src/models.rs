@@ -17,7 +17,6 @@ pub struct User {
     pub roles: Vec<UserRole>,
     pub telemetry: bool,
     pub tomestoned: bool,
-    pub credits: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -31,37 +30,14 @@ pub enum UserRole {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Account {
-    pub _id: ObjectId,
-    pub user_id: ObjectId,
-    pub r#type: String,
-    pub provider: String,
-    pub provider_account_id: String,
-    pub refresh_token: Option<String>,
-    pub access_token: Option<String>,
-    pub expires_at: Option<i64>,
-    pub token_type: Option<String>,
-    pub scope: Option<String>,
-    pub id_token: Option<String>,
-    pub session_state: Option<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Session {
-    pub _id: ObjectId,
-    pub session_token: String,
-    pub user_id: ObjectId,
-    pub expires: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Tokens {
     pub _id: ObjectId,
     pub token: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub tomestoned: bool,
-    pub author_id: ObjectId,
+    #[allow(non_snake_case)]
+    pub userId: ObjectId,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -70,35 +46,42 @@ pub struct Statistics {
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub usage: Option<Usage>,
-    pub payments: Option<Vec<Payment>>,
-    pub author_id: ObjectId,
+    #[allow(non_snake_case)]
+    pub userId: ObjectId,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Usage {
-    api_calls: Option<i32>,
-    api_calls_day: Option<i32>,
-    api_calls_week: Option<i32>,
-    api_calls_month: Option<i32>,
-    api_calls_year: Option<i32>,
-
-    api_calls_success: Option<i32>,
-    api_calls_fail: Option<i32>,
-
-    credits: Option<Credits>,
+    pub api_calls: Option<i32>,
+    pub api_calls_monday: Option<i32>,
+    pub api_calls_tuesday: Option<i32>,
+    pub api_calls_wednesday: Option<i32>,
+    pub api_calls_thursday: Option<i32>,
+    pub api_calls_friday: Option<i32>,
+    pub api_calls_saturday: Option<i32>,
+    pub api_calls_sunday: Option<i32>,
+    pub api_calls_success: Option<i32>,
+    pub api_calls_fail: Option<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Credits {
-    total: Option<i32>,
-    used: Option<i32>,
+    pub used_amount: Option<i32>,
+    pub current_amount: Option<i32>,
+    #[allow(non_snake_case)]
+    pub userId: ObjectId,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Payment {
     pub active: bool,
-    pub subscription_id: String,
+   pub  subscription_id: String,
     pub subscription_date: DateTime<Utc>,
+   pub  subscription_end_date: DateTime<Utc>,
+   pub  subscription_cancelled: bool,
+  pub   subscription_cancelled_date: DateTime<Utc>,
+   pub  subscription_cancelled_reason: Option<String>,
+   pub  credits_purchased: i32,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -108,6 +91,8 @@ pub struct SystemReport {
     pub description: String,
     pub status: ReportStatus,
     pub created_at: DateTime<Utc>,
+    #[allow(non_snake_case)]
+    pub userId: ObjectId,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -117,7 +102,8 @@ pub struct UserReport {
     pub description: String,
     pub status: ReportStatus,
     pub created_at: DateTime<Utc>,
-    pub assigned_to_id: Option<ObjectId>,
+    #[allow(non_snake_case)]
+    pub assignedToId: ObjectId,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

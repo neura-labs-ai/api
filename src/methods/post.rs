@@ -1,4 +1,9 @@
-use crate::{db::CollectionNames, methods::{generate_api_key, RequestBody}, models::Tokens, AppState};
+use crate::{
+    db::CollectionNames,
+    methods::{generate_api_key, RequestBody},
+    models::Tokens,
+    AppState,
+};
 use actix_web::{post, web, HttpResponse, Responder};
 use mongodb::bson::{doc, oid::ObjectId};
 use neura_labs_engine::{
@@ -38,12 +43,12 @@ struct TranslateResponse {
 /// ```json
 /// {
 ///   "data": {
-///     "source_language": "English",
-///     "target_language": "Spanish",
-///     "input_context": [
-///     "How are you?",
-///     ],
-///     "concat": false
+///      "source_language": "English",
+///      "target_language": "Spanish",
+///      "input_context": [
+///      "World Hello",
+///      ],
+///      "concat": false
 ///   }
 /// }
 /// ```
@@ -108,7 +113,7 @@ pub async fn create_api_token(
         created_at: chrono::Utc::now(),
         updated_at: None,
         tomestoned: false,
-        author_id: data.db.convert_to_object_id(body.data.clone()).unwrap(),
+        userId: data.db.convert_to_object_id(body.data.clone()).unwrap(),
     };
 
     match collection.insert_one(token, None).await {

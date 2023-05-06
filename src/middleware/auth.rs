@@ -8,12 +8,15 @@ use actix_web::{
     web, Error,
 };
 use futures_util::future::LocalBoxFuture;
+use lazy_static::lazy_static;
+use std::collections::HashSet;
+use std::sync::Mutex;
 
 use crate::AppState;
 
-pub struct AuthHandler;
+pub struct RequestHandler;
 
-impl<S: 'static, B> Transform<S, ServiceRequest> for AuthHandler
+impl<S: 'static, B> Transform<S, ServiceRequest> for RequestHandler
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -39,9 +42,18 @@ pub struct LoggingMiddleware<S> {
 
 pub const AUTH_HEADER: &str = "Authorization";
 
+#[derive(Clone)]
 struct ApiToken {
     exist: bool,
-    value: String
+    value: String,
+}
+
+// Define a type alias for the hash set.
+type ApiTokenCache = HashSet<String>;
+
+lazy_static! {
+    // Create a mutex-guarded global instance of the hash set.
+    static ref API_TOKEN_CACHE: Mutex<ApiTokenCache> = Mutex::new(ApiTokenCache::new());
 }
 
 impl<S, B> Service<ServiceRequest> for LoggingMiddleware<S>
@@ -71,7 +83,7 @@ where
             None => ApiToken {
                 exist: false,
                 value: String::from(""),
-            }
+            },
         };
 
         Box::pin(async move {
@@ -86,11 +98,17 @@ where
             if token.value == crate::utils::env().unwrap().super_key {
                 return Ok(res);
             }
-            
-            let authorized_request = data.db.has_api_key(token.value).await.unwrap();
 
-            if !authorized_request {
-                return Err(actix_web::error::ErrorUnauthorized("Unauthorized Request!"));
+            // Check if the API token is already in the cache.
+            let mut cache = API_TOKEN_CACHE.lock().unwrap();
+
+            if !cache.contains(&token.value) {
+                // Token not found in cache, so check the database and add to cache if found.
+                let authorized_request = data.db.has_api_key(token.clone().value).await.unwrap();
+                if !authorized_request {
+                    return Err(actix_web::error::ErrorUnauthorized("Unauthorized Request!"));
+                }
+                cache.insert(token.value.clone());
             }
 
             // everything is fine, return the response

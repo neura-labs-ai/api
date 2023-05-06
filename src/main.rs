@@ -11,10 +11,8 @@ use actix_web::{middleware::Logger, web, App, HttpServer};
 use env_logger::Env;
 
 use methods::{
-    get::{health_check, index, get_user, get_user_stats, get_global_statistics}, post::translate,
+    get::{health_check, index, get_global_statistics}, post::{translate, create_api_token},
 };
-
-use crate::methods::post::create_api_token;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -40,12 +38,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(app_state))
             .wrap(Logger::default())
             .wrap(Logger::new("%a %{User-Agent}i"))
-            .wrap(middleware::auth::AuthHandler)
+            .wrap(middleware::auth::RequestHandler)
             // get
             .service(index)
             .service(health_check)
-            .service(get_user)
-            .service(get_user_stats)
             .service(get_global_statistics)
             // post
             .service(translate)

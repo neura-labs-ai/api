@@ -1,14 +1,14 @@
 extern crate anyhow;
 
-use chrono::{DateTime, Utc};
+use crate::models::{
+    Credits, Payment, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport,
+};
+use chrono::Utc;
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
-    options::{FindOneAndUpdateOptions, ReplaceOptions, ReturnDocument},
+    options::ReplaceOptions,
     Database, {Client, Collection},
 };
-use serde::{Deserialize, Serialize};
-
-use crate::models::{Payment, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport};
 
 pub const DB_NAME: &str = "neuralabsai";
 
@@ -24,9 +24,10 @@ pub enum CollectionNames {
     Account,
     Session,
     Tokens,
+    Credits,
+    Statistics,
     SystemReport,
     UserReport,
-    Statistics,
     Custom(String),
 }
 
@@ -71,6 +72,7 @@ impl MongoDB {
             CollectionNames::SystemReport => self.db.collection("system_reports"),
             CollectionNames::UserReport => self.db.collection("user_reports"),
             CollectionNames::Statistics => self.db.collection("statistics"),
+            CollectionNames::Credits => self.db.collection("credits"),
             CollectionNames::Custom(name) => self.db.collection(&name),
         }
     }
@@ -78,6 +80,7 @@ impl MongoDB {
     pub async fn create_system_report(
         &self,
         title: String,
+        user_id: ObjectId,
         description: String,
     ) -> anyhow::Result<()> {
         let collection = self.get_collection::<SystemReport>(CollectionNames::SystemReport);
@@ -88,6 +91,7 @@ impl MongoDB {
             description,
             status: ReportStatus::InProgress,
             created_at: chrono::Utc::now(),
+            userId: user_id,
         };
 
         match collection.insert_one(report, None).await {
@@ -100,7 +104,7 @@ impl MongoDB {
         &self,
         title: String,
         description: String,
-        assigned_to_id: Option<ObjectId>,
+        assigned_to_id: ObjectId,
     ) -> anyhow::Result<()> {
         let collection = self.get_collection::<UserReport>(CollectionNames::UserReport);
 
@@ -110,7 +114,7 @@ impl MongoDB {
             description,
             status: ReportStatus::InProgress,
             created_at: chrono::Utc::now(),
-            assigned_to_id,
+            assignedToId: assigned_to_id,
         };
 
         match collection.insert_one(report, None).await {
@@ -119,12 +123,44 @@ impl MongoDB {
         }
     }
 
+    /// Updates user credit information.
+    ///
+    /// This function is called when a user makes a request to the API and the request is successful.
+    ///
+    /// todo - Add the create_statistics_report function to this function. First we need to validate the current data and day.
+    pub async fn process_credit_usage(&self, user_id: ObjectId) -> anyhow::Result<bool> {
+        let collection = self.get_collection::<Credits>(CollectionNames::Credits);
+
+        // Find an existing credits for the user.
+        let filter = doc! {"userId": user_id};
+
+        let mut credits = match collection.find_one(filter.clone(), None).await? {
+            Some(credits) => credits,
+            None => return Ok(false), // Return false if credits document not found.
+        };
+
+        // Check if user has enough credits.
+        if credits.current_amount.unwrap_or(0) <= 0 {
+            return Ok(false);
+        }
+
+        // Subtract one from current_amount and add one to used_amount.
+        credits.current_amount = credits.current_amount.map(|amount| amount - 1);
+        credits.used_amount = credits.used_amount.map(|amount| amount + 1);
+
+        // Save the credits to the database.
+        collection
+            .replace_one(filter, credits.clone(), None)
+            .await?;
+
+        Ok(true)
+    }
+
     // Creates a new stats report for the api.
-    // todo - test
     pub async fn create_statistics_report(
         &self,
         user_id: ObjectId,
-        options: StatisticsReportOptions,
+        usage: Option<Usage>,
     ) -> anyhow::Result<()> {
         let collection = self.get_collection::<Statistics>(CollectionNames::Statistics);
 
@@ -138,12 +174,34 @@ impl MongoDB {
         // Create a new statistics report or update the existing one.
         let report = match existing_report {
             Some(mut report) => {
-                // Update the usage and payments data if provided.
-                if let Some(usage) = options.usage {
-                    report.usage = Some(usage);
-                }
-                if let Some(payments) = options.payments {
-                    report.payments = Some(payments);
+                // Update the usage data if provided.
+                if let Some(new_usage) = usage {
+                    if let Some(old_usage) = report.usage.as_mut() {
+                        old_usage.api_calls = old_usage.api_calls.or(new_usage.api_calls);
+                        old_usage.api_calls_monday =
+                            old_usage.api_calls_monday.or(new_usage.api_calls_monday);
+                        old_usage.api_calls_tuesday =
+                            old_usage.api_calls_tuesday.or(new_usage.api_calls_tuesday);
+                        old_usage.api_calls_wednesday = old_usage
+                            .api_calls_wednesday
+                            .or(new_usage.api_calls_wednesday);
+                        old_usage.api_calls_thursday = old_usage
+                            .api_calls_thursday
+                            .or(new_usage.api_calls_thursday);
+                        old_usage.api_calls_friday =
+                            old_usage.api_calls_friday.or(new_usage.api_calls_friday);
+                        old_usage.api_calls_saturday = old_usage
+                            .api_calls_saturday
+                            .or(new_usage.api_calls_saturday);
+                        old_usage.api_calls_sunday =
+                            old_usage.api_calls_sunday.or(new_usage.api_calls_sunday);
+                        old_usage.api_calls_success =
+                            old_usage.api_calls_success.or(new_usage.api_calls_success);
+                        old_usage.api_calls_fail =
+                            old_usage.api_calls_fail.or(new_usage.api_calls_fail);
+                    } else {
+                        report.usage = Some(new_usage);
+                    }
                 }
 
                 // Update the updated_at field.
@@ -157,28 +215,20 @@ impl MongoDB {
                     _id: ObjectId::new(),
                     created_at: now,
                     updated_at: None,
-                    usage: options.usage,
-                    payments: options.payments,
-                    author_id: user_id,
+                    usage: usage,
+                    userId: user_id,
                 }
             }
         };
 
         // Save the statistics report to the database.
-        let result = collection
+        collection
             .replace_one(
                 filter,
                 report.clone(),
                 ReplaceOptions::builder().upsert(true).build(),
             )
             .await?;
-
-        // Check if the statistics report was inserted or updated.
-        if result.matched_count > 0 {
-            println!("Statistics report updated: {:?}", report);
-        } else {
-            println!("Statistics report created: {:?}", report);
-        }
 
         Ok(())
     }
@@ -224,10 +274,4 @@ impl MongoDB {
             Err(e) => Err(anyhow::Error::new(e)),
         }
     }
-}
-
-pub struct StatisticsReportOptions {
-    pub author_id: ObjectId,
-    pub usage: Option<Usage>,
-    pub payments: Option<Vec<Payment>>,
 }
