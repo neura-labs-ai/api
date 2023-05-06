@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{Payment, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport};
 
-pub const DB_NAME: &str = "neuralabsai-dev";
+pub const DB_NAME: &str = "neuralabsai";
 
 #[derive(Clone, Debug)]
 pub struct MongoDB {
