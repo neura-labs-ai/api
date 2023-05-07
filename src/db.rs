@@ -1,11 +1,9 @@
 extern crate anyhow;
 
-use crate::models::{
-    Credits, Payment, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport,
-};
-use chrono::Utc;
+use crate::models::{Credits, ReportStatus, Statistics, SystemReport, Tokens, Usage, UserReport};
+use chrono::{DateTime, Utc};
 use mongodb::{
-    bson::{doc, oid::ObjectId, Document},
+    bson::{doc, oid::ObjectId, DateTime as BsonDateTime, Document, self},
     options::ReplaceOptions,
     Database, {Client, Collection},
 };
@@ -92,7 +90,7 @@ impl MongoDB {
             title,
             description,
             status: ReportStatus::InProgress,
-            created_at: chrono::Utc::now(),
+            created_at: self.get_current_time().unwrap(),
             userId: user_id,
         };
 
@@ -115,7 +113,7 @@ impl MongoDB {
             title,
             description,
             status: ReportStatus::InProgress,
-            created_at: chrono::Utc::now(),
+            created_at: self.get_current_time().unwrap(),
             assignedToId: assigned_to_id,
         };
 
@@ -183,7 +181,7 @@ impl MongoDB {
         let collection = self.get_collection::<Statistics>(CollectionNames::Statistics);
 
         // Get the current date and time.
-        let now = Utc::now();
+        let now = self.get_current_time().unwrap();
 
         // Find an existing statistics report for the user.
         let filter = doc! {"userId": user_id};
@@ -312,5 +310,13 @@ impl MongoDB {
             Ok(object_id) => Ok(object_id),
             Err(e) => Err(anyhow::Error::new(e)),
         }
+    }
+
+    /// Gets the current DateTime in UTC
+    /// This function converts the DateTime into MongoDB compatible format for storing in the database
+    pub fn get_current_time(&self) -> anyhow::Result<bson::DateTime> {
+        let now = Utc::now();
+        let bson_date_time = BsonDateTime::from_chrono(now);
+        Ok(bson_date_time)
     }
 }

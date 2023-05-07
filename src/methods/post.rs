@@ -1,5 +1,5 @@
 use crate::{
-    db::CollectionNames,
+    db::{CollectionNames},
     methods::{generate_api_key, RequestBody},
     models::{Credits, Payment, Tokens},
     AppState,
@@ -130,7 +130,7 @@ pub async fn create_api_token(
     let token = Tokens {
         _id: ObjectId::new(),
         token: generate_api_key(),
-        created_at: chrono::Utc::now(),
+        created_at: data.db.get_current_time().unwrap(),
         updated_at: None,
         tomestoned: false,
         userId: data.db.convert_to_object_id(body.data.clone()).unwrap(),
@@ -160,7 +160,7 @@ pub async fn create_user_payment(
     let payment_collection = data.db.get_collection::<Payment>(CollectionNames::Payment);
     let credits_collection = data.db.get_collection::<Credits>(CollectionNames::Credits);
 
-    let now = chrono::Utc::now();
+    let now = data.db.get_current_time().unwrap();
 
     let payment = Payment {
         _id: ObjectId::new(),
@@ -168,7 +168,7 @@ pub async fn create_user_payment(
         active: true,
         subscription_id: body_data.id, // todo - use a generated id from the subscription provider
         subscription_date: now,
-        subscription_end_date: now + chrono::Duration::days(30),
+        subscription_end_date: now,
         subscription_cancelled: false,
         subscription_cancelled_date: None,
         subscription_cancelled_reason: None,
@@ -186,7 +186,7 @@ pub async fn create_user_payment(
         let credits = credits.unwrap();
         let new_credits = credits.current_amount.unwrap_or(0) + body_data.amount;
         let filter = doc! {"userId": uid};
-        let update = doc! {"$set": {"credits": new_credits}};
+        let update = doc! {"$set": {"current_amount": new_credits}};
         credits_collection
             .update_one(filter, update, None)
             .await
