@@ -1,6 +1,15 @@
 use std::collections::HashMap;
 use env_file_reader::read_file;
 
+use lazy_static::lazy_static;
+
+// Used so the env variables are only loaded once and then cached. 
+// this way we avoid having to read the .env file every time we need an env variable.
+lazy_static! {
+    static ref ENV_DATA: HashMap<String, String> = load_env_data().unwrap();
+}
+
+
 pub struct Environment {
     pub mongodb_uri: String,
     // The super-key is the direct bypass key for the API. Used for internal API's
@@ -23,7 +32,7 @@ fn load_env_data() -> anyhow::Result<HashMap<String, String>> {
 
 // Easy access to the environment variables
 pub fn env() -> anyhow::Result<Environment> {
-    let env_data = load_env_data().unwrap();
+    let env_data = &ENV_DATA;
 
     let mongodb_uri = match env_data.get("MONGODB_URI") {
         Some(uri) => uri,
