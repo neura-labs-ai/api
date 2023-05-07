@@ -25,6 +25,7 @@ pub enum CollectionNames {
     Session,
     Tokens,
     Credits,
+    Payment,
     Statistics,
     SystemReport,
     UserReport,
@@ -72,6 +73,7 @@ impl MongoDB {
             CollectionNames::SystemReport => self.db.collection("system_reports"),
             CollectionNames::UserReport => self.db.collection("user_reports"),
             CollectionNames::Statistics => self.db.collection("statistics"),
+            CollectionNames::Payment => self.db.collection("payments"),
             CollectionNames::Credits => self.db.collection("credits"),
             CollectionNames::Custom(name) => self.db.collection(&name),
         }
@@ -153,6 +155,22 @@ impl MongoDB {
             .replace_one(filter, credits.clone(), None)
             .await?;
 
+        let u = Usage {
+            api_calls: Some(1),
+            api_calls_monday: None,
+            api_calls_tuesday: None,
+            api_calls_wednesday: None,
+            api_calls_thursday: None,
+            api_calls_friday: None,
+            api_calls_saturday: None,
+            api_calls_sunday: None,
+            api_calls_success: None,
+            api_calls_fail: None,
+        };
+
+        // Create a new statistics report for the user.
+        self.create_statistics_report(user_id, Some(u)).await?;
+
         Ok(true)
     }
 
@@ -168,7 +186,7 @@ impl MongoDB {
         let now = Utc::now();
 
         // Find an existing statistics report for the user.
-        let filter = doc! {"author_id": user_id};
+        let filter = doc! {"userId": user_id};
         let existing_report = collection.find_one(filter.clone(), None).await?;
 
         // Create a new statistics report or update the existing one.
@@ -176,32 +194,53 @@ impl MongoDB {
             Some(mut report) => {
                 // Update the usage data if provided.
                 if let Some(new_usage) = usage {
-                    if let Some(old_usage) = report.usage.as_mut() {
-                        old_usage.api_calls = old_usage.api_calls.or(new_usage.api_calls);
-                        old_usage.api_calls_monday =
-                            old_usage.api_calls_monday.or(new_usage.api_calls_monday);
-                        old_usage.api_calls_tuesday =
-                            old_usage.api_calls_tuesday.or(new_usage.api_calls_tuesday);
-                        old_usage.api_calls_wednesday = old_usage
-                            .api_calls_wednesday
-                            .or(new_usage.api_calls_wednesday);
-                        old_usage.api_calls_thursday = old_usage
-                            .api_calls_thursday
-                            .or(new_usage.api_calls_thursday);
-                        old_usage.api_calls_friday =
-                            old_usage.api_calls_friday.or(new_usage.api_calls_friday);
-                        old_usage.api_calls_saturday = old_usage
-                            .api_calls_saturday
-                            .or(new_usage.api_calls_saturday);
-                        old_usage.api_calls_sunday =
-                            old_usage.api_calls_sunday.or(new_usage.api_calls_sunday);
-                        old_usage.api_calls_success =
-                            old_usage.api_calls_success.or(new_usage.api_calls_success);
-                        old_usage.api_calls_fail =
-                            old_usage.api_calls_fail.or(new_usage.api_calls_fail);
-                    } else {
-                        report.usage = Some(new_usage);
-                    }
+                    // Update the usage data if provided.
+                    let mut old_usage = report.usage.take().unwrap();
+
+                    // Increment the usage data if it exists, or set it to the new value if it doesn't.
+                    old_usage.api_calls = old_usage
+                        .api_calls
+                        .map(|x| x + new_usage.api_calls.unwrap_or_default())
+                        .or(new_usage.api_calls);
+                    old_usage.api_calls_monday = old_usage
+                        .api_calls_monday
+                        .map(|x| x + new_usage.api_calls_monday.unwrap_or_default())
+                        .or(new_usage.api_calls_monday);
+                    old_usage.api_calls_tuesday = old_usage
+                        .api_calls_tuesday
+                        .map(|x| x + new_usage.api_calls_tuesday.unwrap_or_default())
+                        .or(new_usage.api_calls_tuesday);
+                    old_usage.api_calls_wednesday = old_usage
+                        .api_calls_wednesday
+                        .map(|x| x + new_usage.api_calls_wednesday.unwrap_or_default())
+                        .or(new_usage.api_calls_wednesday);
+                    old_usage.api_calls_thursday = old_usage
+                        .api_calls_thursday
+                        .map(|x| x + new_usage.api_calls_thursday.unwrap_or_default())
+                        .or(new_usage.api_calls_thursday);
+                    old_usage.api_calls_friday = old_usage
+                        .api_calls_friday
+                        .map(|x| x + new_usage.api_calls_friday.unwrap_or_default())
+                        .or(new_usage.api_calls_friday);
+                    old_usage.api_calls_saturday = old_usage
+                        .api_calls_saturday
+                        .map(|x| x + new_usage.api_calls_saturday.unwrap_or_default())
+                        .or(new_usage.api_calls_saturday);
+                    old_usage.api_calls_sunday = old_usage
+                        .api_calls_sunday
+                        .map(|x| x + new_usage.api_calls_sunday.unwrap_or_default())
+                        .or(new_usage.api_calls_sunday);
+                    old_usage.api_calls_success = old_usage
+                        .api_calls_success
+                        .map(|x| x + new_usage.api_calls_success.unwrap_or_default())
+                        .or(new_usage.api_calls_success);
+                    old_usage.api_calls_fail = old_usage
+                        .api_calls_fail
+                        .map(|x| x + new_usage.api_calls_fail.unwrap_or_default())
+                        .or(new_usage.api_calls_fail);
+
+                    // Update the usage field of the report struct.
+                    report.usage = Some(old_usage);
                 }
 
                 // Update the updated_at field.
@@ -215,7 +254,7 @@ impl MongoDB {
                     _id: ObjectId::new(),
                     created_at: now,
                     updated_at: None,
-                    usage: usage,
+                    usage,
                     userId: user_id,
                 }
             }

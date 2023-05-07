@@ -11,7 +11,7 @@ use actix_web::{middleware::Logger, web, App, HttpServer};
 use env_logger::Env;
 
 use methods::{
-    get::{health_check, index, get_global_statistics}, post::{translate, create_api_token},
+    get::{health_check, index, get_global_statistics}, post::{translate, create_api_token, create_user_payment},
 };
 
 #[derive(Clone, Debug)]
@@ -46,6 +46,7 @@ async fn main() -> std::io::Result<()> {
             // post
             .service(translate)
             .service(create_api_token)
+            .service(create_user_payment)
     })
     .bind((utils::env().unwrap().address, utils::env().unwrap().port))?
     .run()
