@@ -129,7 +129,7 @@ pub struct CreatePaymentBody {
     // pub payment_id: String,
 }
 
-// todo - block users from accessing this endpoint
+// todo - block users from accessing this endpoint (https://github.com/actix/examples/blob/master/middleware/middleware/src/redirect.rs#L50)
 #[post("/api/v1/payment")]
 pub async fn create_user_payment(
     data: web::Data<AppState>,
@@ -146,7 +146,7 @@ pub async fn create_user_payment(
         _id: ObjectId::new(),
         userId: uid,
         active: true,
-        subscription_id: body_data.id, // todo - use a generated id from the subscription provider
+        subscription_id: now.to_string() + &uid.to_string(),
         subscription_date: now,
         subscription_end_date: now,
         subscription_cancelled: false,
